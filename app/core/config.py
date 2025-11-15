@@ -16,9 +16,7 @@ class Settings:
     jwt_secret_key=os.environ.get("JWT_SECRET_KEY")
     jwt_algorithm=os.environ.get("ALGORITHM")
     jwt_access_token_expires=os.environ.get("JWT_ACCESS_TOKEN_EXPIRES", 30)
-    AZURE_STORAGE_CONNECTION_STRING= os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
-
-
+   
 
 
 def get_settings():

@@ -16,6 +16,7 @@ easytax/
 │   │   │   ├── models.py         # SQLAlchemy models for Profile
 │   │   │   ├── schemas.py        # Pydantic models for Profile
 │   │   │   ├── routes.py         # FastAPI routers (endpoints)
+|   |   |   ├── user_auth.py      # User authentication
 │   │   │   ├── crud.py           # Business logic
 │   │   │   └── __init__.py
 │   │   │
