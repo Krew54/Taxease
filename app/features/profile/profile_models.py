@@ -49,6 +49,7 @@ class Users(ResourceBase):
     __tablename__ = "users"
     email = Column(String, unique=True, index=True, nullable=False, primary_key=True)
     password = Column(EncryptedType(String, SALT), nullable=False)
+    is_verified = Column(Boolean, default=False)
     date_joined = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'))
     date_modified = Column(sql.TIMESTAMP(timezone=True), server_default=text('now()'), onupdate=text('now()'))
 

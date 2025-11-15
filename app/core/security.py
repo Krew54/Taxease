@@ -12,7 +12,7 @@ from app.core.config import get_settings
 from datetime import datetime, timedelta
 from app.features.profile import profile_schema
 
-SECRET_KEY = get_settings().jwt_secret_key
+SECRET_KEY: str = get_settings().jwt_secret_key
 ALGORITHM = get_settings().jwt_algorithm
 ACCESS_TOKEN_EXPIRE_MINUTES = get_settings().jwt_access_token_expires
 

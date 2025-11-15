@@ -19,7 +19,7 @@ class UserCreate(UserBase):
 
 
 class OTPData(BaseModel):
-    id: int
+    email: str
     code: Optional[str] = None
 
     class Config:
@@ -31,7 +31,7 @@ class OneTimePassword(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: Optional[str] = None
+    email: Optional[str] = None
 
 
 class ForgetPassword(BaseModel):

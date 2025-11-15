@@ -30,7 +30,7 @@ class Settings:
     mail_jet_api_secret_key: str = os.environ.get('MAIL_JET_API_SECRET_KEY')
     salt=os.environ.get("SALT")
     jwt_secret_key=os.environ.get("JWT_SECRET_KEY")
-    jwt_algorithm=os.environ.get("ALGORITHM")
+    jwt_algorithm=os.environ.get("JWT_ALGORITHM")
     jwt_access_token_expires=os.environ.get("JWT_ACCESS_TOKEN_EXPIRES", 30)
    
 

@@ -11,7 +11,7 @@ from app.features.profile.profile_models import Users
 
 profile_router=APIRouter(
     prefix="/api/auth/user",
-    tags=["User Authentication"]
+    tags=["User profile and Authentication"]
 )
 
 

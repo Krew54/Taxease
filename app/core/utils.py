@@ -1,4 +1,4 @@
-from .config import get_settings
+from app.core.config import get_settings
 import pyotp
 from mailjet_rest import Client
 from app.features.profile import profile_models
@@ -8,17 +8,10 @@ from app.core import security
 from app.core.database import get_db
 from fastapi import HTTPException, Depends, status, Response
 from app.core import sql_query
-
-
 from typing import List
 
-settings=get_settings()
-
-# api_key = settings.mail_jet_api_key
-# api_secret = settings.mail_jet_api_secret_key
-
-api_key='35b50bea1b6ecaf96b0b40845ebd668d'
-api_secret='8d5fb1be2cde790250083c695f5cf8a5'
+api_key = get_settings().mail_jet_api_key
+api_secret = get_settings().mail_jet_api_secret_key
 
 mailjet = Client(auth=(api_key, api_secret), version='v3.1')
 
@@ -99,9 +92,6 @@ def create_login(model, email, password, db:Session):
     if not verify_password(db, email=email, password=password, model=model):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is inactive")
-    
     if not user.is_verified:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is not verified")
     
@@ -119,9 +109,9 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
     email = otp.email
   
 
-    is_valid = verify_otp(otp.code)
+    # is_valid = verify_otp(otp.code)
     
-    if is_valid and otp.is_valid:
+    if otp.is_valid:
         qs = db.query(model).filter(model.email == email)
         user = qs.first()
         if not user:
@@ -131,7 +121,6 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
         db.commit()
         return {"status": "Account verified successfully", "is_verified": user.is_verified}
     else:
-        otp_qs.update({"is_valid": False}, synchronize_session=False)
         response.status_code = status.HTTP_400_BAD_REQUEST
-        return {"message": "Invalid OTP or OTP has expired"}
+        return {"message": "Invalid OTP"}
     
