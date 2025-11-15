@@ -33,6 +33,7 @@ def create_access_token(data: dict) -> str:
     token_data = data.copy()
     expires = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     token_data.update({'expires': expires.isoformat()})
+    print(SECRET_KEY)
     token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
     return token
 
@@ -106,13 +107,13 @@ def decode_token(token: str, schema_model) -> object:
     """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        id: str = payload.get("user_id")
+        email: str = payload.get("email")
 
-        if not id:
+        if not email:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid token or token expired")
 
         if isinstance(schema_model, profile_schema.UserCreate):
-            token_data = schema_model(user_id=id)
+            token_data = schema_model(email=email)
     except JWSError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid token or token expired")
     return token_data

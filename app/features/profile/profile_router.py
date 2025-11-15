@@ -136,7 +136,7 @@ async def reset_user_password_request(req: profile_schema.ForgetPassword, db: Se
     if not user:
         return Response(content="An email to reset your password has been sent", status_code=status.HTTP_404_NOT_FOUND)
 
-    token = security.create_access_token(data={"user_id": user.id})
+    token = security.create_access_token(data={"email": user.email})
     subject = "Password reset request"
     recipient = user.email
     message = """
