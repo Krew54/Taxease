@@ -1,23 +1,13 @@
 import sqlalchemy as sql
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import MetaData, ForeignKey
+from sqlalchemy import ForeignKey
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.sql.expression import text
 from sqlalchemy_utils.types.encrypted.encrypted_type import EncryptedType
+from app.core.config import get_settings, Base
 
-convention = {
-    "ix": 'ix_%(column_0_label)s',
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s"
-}
+import pandas as pd
 
-metadata = MetaData(naming_convention=convention)
-Base = declarative_base(metadata=metadata)
-
-SALT='f231des342w31de04546323fdre6517hfr450dd564267yt5607ggre45edr630TaxFixNG'
-# SALT=get_settings().salt
+SALT=get_settings().salt
 
 
 class ResourceBase(Base):
