@@ -41,7 +41,7 @@ class UserProfile(ResourceBase):
     UserProfile model for individual users.
 
     Attributes:
-        Name (str): Full name of the user.
+        name (str): Full name of the user.
         email (str): Unique email address.
         phone_no (str): Phone number of the user.
         address (str): Address of the user.
@@ -50,7 +50,7 @@ class UserProfile(ResourceBase):
         state_of_residence (str): State of residence of the user.
         state_tax_authority (str): State tax authority of the user.
         NIN (str): National Identification Number of the user.
-        income (float): Income of the user.
+        employment_income (float): Employment income of the user.
         pension_contribution (float): Pension contribution of the user.
         national_housing_fund (float): National housing fund contribution of the user.
         National_health_insurance_scheme (float): National health insurance scheme contribution of the user.

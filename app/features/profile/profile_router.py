@@ -57,24 +57,20 @@ def create_profile(
     tax_fields = [
         "employment_income",
         "business_income",
-        "investment_income",
         "other_income",
         "chargeable_gains",
-        "exempt_income",
-        "final_wht_income",
         "losses_allowed",
         "capital_allowances",
-        "nhf",
-        "nhis",
-        "pension",
-        "house_loan_interest",
-        "life_insurance",
-        "annual_rent",
+        "national_housing_fund",
+        "National_health_insurance_scheme",
+        "pension_contribution",
+        "mortgage_interest",
+        "life_insurance_premium",
+        "house_rent",
     ]
 
     tax_args = {k: (getattr(payload, k, 0) or 0) for k in tax_fields}
     estimated_tax = compute_tax_liability(**tax_args)
-
     # Build model kwargs only with fields that exist on the UserProfile model
     model_kwargs = {}
     for attr in ("name","phone_no", "address", "occupation", "date_of_birth", "state_of_residence", "state_tax_authority", "NIN"):
@@ -82,42 +78,17 @@ def create_profile(
         if val is not None:
             model_kwargs[attr] = val
 
-    # Map tax/deduction inputs into model columns where appropriate
-    # total income: sum primary income sources if provided
-    total_income = 0
-    for src in ("employment_income", "business_income", "investment_income", "other_income", "chargeable_gains"):
-        total_income += (getattr(payload, src, 0) or 0)
-    if total_income > 0:
-        model_kwargs["income"] = total_income
-
-    # map pension, nhf, nhis, life insurance, rent and loan interest into model fields
-    if getattr(payload, "pension", None) is not None:
-        model_kwargs["pension_contribution"] = payload.pension
-    if getattr(payload, "nhf", None) is not None:
-        model_kwargs["national_housing_fund"] = payload.nhf
-    if getattr(payload, "nhis", None) is not None:
-        model_kwargs["National_health_insurance_scheme"] = payload.nhis
-    if getattr(payload, "life_insurance", None) is not None:
-        model_kwargs["life_insurance_premium"] = payload.life_insurance
-    if getattr(payload, "annual_rent", None) is not None:
-        model_kwargs["house_rent"] = payload.annual_rent
-    if getattr(payload, "house_loan_interest", None) is not None:
-        model_kwargs["mortgage_interest"] = payload.house_loan_interest
-
     # ensure email is set from the authenticated user
     model_kwargs["email"] = current_user.email
     model_kwargs["estimated_tax"] = estimated_tax
+
+    model_kwargs = model_kwargs | tax_args
 
     new_profile = profile_model.UserProfile(**model_kwargs)
     db.add(new_profile)
     db.commit()
     db.refresh(new_profile)
     # attach estimated tax to the returned object (not persisted)
-    try:
-        setattr(new_profile, "estimated_tax", float(estimated_tax))
-    except Exception:
-        # ignore if conversion fails
-        setattr(new_profile, "estimated_tax", None)
     return new_profile
 
 
@@ -157,19 +128,17 @@ def delete_profile(current_user: Users = Depends(get_current_user), db: Session 
 def compute_tax_liability(
     employment_income: float = 0,
     business_income: float = 0,
-    investment_income: float = 0,
     other_income: float = 0,
     chargeable_gains: float = 0,
-    exempt_income: float = 0,
     final_wht_income: float = 0,
     losses_allowed: float = 0,
     capital_allowances: float = 0,
-    nhf: float = 0,
-    nhis: float = 0,
-    pension: float = 0,
-    house_loan_interest: float = 0,
-    life_insurance: float = 0,
-    annual_rent: float = 0
+    national_housing_fund: float = 0,
+    National_health_insurance_scheme: float = 0,
+    pension_contribution: float = 0,
+    mortgage_interest: float = 0,
+    life_insurance_premium: float = 0,
+    house_rent: float = 0
 ):
     """
     Compute Personal Income Tax (PIT) based on Nigeria Tax Act 2025.
@@ -179,10 +148,8 @@ def compute_tax_liability(
     total_income = (
         employment_income +
         business_income +
-        investment_income +
         other_income +
         chargeable_gains -
-        exempt_income -
         final_wht_income -
         losses_allowed -
         capital_allowances
@@ -192,14 +159,14 @@ def compute_tax_liability(
         total_income = 0
 
     # 2. Eligible Deductions (Section 30)
-    rent_relief = min(0.20 * annual_rent, 500000)
+    rent_relief = min(0.20 * house_rent, 500000)
 
     eligible_deductions = (
-        nhf +
-        nhis +
-        pension +
-        house_loan_interest +
-        life_insurance +
+        national_housing_fund +
+        National_health_insurance_scheme +
+        pension_contribution +
+        mortgage_interest +
+        life_insurance_premium +
         rent_relief
     )
 

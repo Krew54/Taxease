@@ -21,21 +21,18 @@ class ProfileBase(BaseModel):
 	NIN: Optional[str] = None
 	employment_income: Optional[float] = 0.0
 	business_income: Optional[float] = 0.0
-	investment_income: Optional[float] = 0.0
 	other_income: Optional[float] = 0.0
 	chargeable_gains: Optional[float] = 0.0
-	exempt_income: Optional[float] = 0.0
-	final_wht_income: Optional[float] = 0.0
 	losses_allowed: Optional[float] = 0.0
 	capital_allowances: Optional[float] = 0.0
 
 	# deduction fields (also available separately on model)
-	nhf: Optional[float] = 0.0
-	nhis: Optional[float] = 0.0
-	pension: Optional[float] = 0.0
-	house_loan_interest: Optional[float] = 0.0
-	life_insurance: Optional[float] = 0.0
-	annual_rent: Optional[float] = 0.0
+	national_housing_fund: Optional[float] = 0.0
+	National_health_insurance_scheme: Optional[float] = 0.0
+	pension_contribution: Optional[float] = 0.0
+	mortgage_interest: Optional[float] = 0.0
+	life_insurance_premium: Optional[float] = 0.0
+	house_rent: Optional[float] = 0.0
 
 	class Config:
 		populate_by_name = True
