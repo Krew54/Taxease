@@ -158,6 +158,3 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-
-alembic.ini
-alembic/
