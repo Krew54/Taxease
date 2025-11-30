@@ -6,7 +6,6 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 import boto3
-from botocore.client import Config
 
 from app.core.database import get_db
 from app.core.config import get_settings
@@ -18,50 +17,43 @@ from app.core.security import oauth_schema, SECRET_KEY, ALGORITHM
 
 settings = get_settings()
 
-# Load Spaces configuration from env (flexible)
-SPACES_KEY = os.environ.get("DIGITALOCEAN_SPACES_KEY")
-SPACES_SECRET = os.environ.get("DIGITALOCEAN_SPACES_SECRET")
-SPACES_REGION = os.environ.get("DIGITALOCEAN_SPACES_REGION")
-SPACES_ENDPOINT = os.environ.get("DIGITALOCEAN_SPACES_ENDPOINT")
-SPACES_BUCKET = os.environ.get("DIGITALOCEAN_SPACES_BUCKET")
+# Load AWS S3 configuration from env
+AWS_ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = os.environ.get("AWS_REGION") or "us-east-1"
+S3_BUCKET = os.environ.get("AWS_S3_BUCKET")
 
 
-def get_spaces_client():
+def get_s3_client():
     return boto3.client(
         "s3",
-        region_name=SPACES_REGION,
-        endpoint_url=SPACES_ENDPOINT,
-        aws_access_key_id=SPACES_KEY,
-        aws_secret_access_key=SPACES_SECRET,
-        config=Config(signature_version="s3v4"),
+        region_name=AWS_REGION,
+        aws_access_key_id=AWS_ACCESS_KEY,
+        aws_secret_access_key=AWS_SECRET_KEY,
     )
 
 
 def generate_signed_url(key: str, expires: int = 3600) -> str:
-    client = get_spaces_client()
+    client = get_s3_client()
     return client.generate_presigned_url(
         "get_object",
-        Params={"Bucket": SPACES_BUCKET, "Key": key},
+        Params={"Bucket": S3_BUCKET, "Key": key},
         ExpiresIn=expires,
     )
 
 
-def upload_file_to_spaces(file: UploadFile, key: str) -> str:
-    client = get_spaces_client()
-    # Upload as private
+def upload_file_to_s3(file: UploadFile, key: str) -> str:
+    client = get_s3_client()
+    # Upload with private ACL
     client.upload_fileobj(
         file.file,
-        SPACES_BUCKET,
+        S3_BUCKET,
         key,
         ExtraArgs={"ACL": "private", "ContentType": file.content_type},
     )
 
-    # Construct URL — DigitalOcean Spaces exposes objects at the endpoint/bucket/key
-    # If a custom endpoint is provided, construct accordingly.
-    if SPACES_ENDPOINT and SPACES_ENDPOINT.startswith("http"):
-        endpoint_domain = SPACES_ENDPOINT.replace("https://", "").replace("http://", "")
-        return f"https://{SPACES_BUCKET}.{endpoint_domain}/{key}"
-    return f"https://{SPACES_BUCKET}.{SPACES_REGION}.digitaloceanspaces.com/{key}"
+    # Construct S3 URL
+    return f"https://{S3_BUCKET}.s3.{AWS_REGION}.amazonaws.com/{key}"
 
 
 doc_router = APIRouter(prefix="/documents", tags=["Document Management"])
@@ -93,14 +85,14 @@ async def upload_document(
     db: Session = Depends(get_db),
 ):
     # validate bucket/config
-    if not all([SPACES_KEY, SPACES_SECRET, SPACES_BUCKET, SPACES_ENDPOINT]):
-        raise HTTPException(status_code=500, detail="Spaces configuration is missing on server")
+    if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, S3_BUCKET, AWS_REGION]):
+        raise HTTPException(status_code=500, detail="AWS S3 configuration is missing on server")
 
     # generate object key
     object_key = f"documents/{current_user.email}/{uuid.uuid4().hex}_{document_name}"
 
     # upload in threadpool (boto3 is blocking) and get returned URL
-    file_url = await run_in_threadpool(upload_file_to_spaces, file, object_key)
+    file_url = await run_in_threadpool(upload_file_to_s3, file, object_key)
 
     def _create():
         doc = doc_models.Document(
@@ -168,7 +160,7 @@ async def update_document(
     # If file provided, upload new file
     if file is not None:
         object_key = f"documents/{current_user.email}/{uuid.uuid4().hex}_{document_name}"
-        file_url = await run_in_threadpool(upload_file_to_spaces, file, object_key)
+        file_url = await run_in_threadpool(upload_file_to_s3, file, object_key)
         doc.file_url = file_url
 
     if category is not None:
@@ -199,16 +191,16 @@ async def delete_document(doc_id: int, current_user: Users = Depends(get_current
     if not doc or doc.user_email != current_user.email:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # attempt to delete from Spaces
+    # attempt to delete from S3
     try:
-        # file_url format: https://{bucket}.{endpoint_domain}/{key}
-        prefix = f"https://{SPACES_BUCKET}."
+        # file_url format: https://{bucket}.s3.{region}.amazonaws.com/{key}
+        prefix = f"https://{S3_BUCKET}.s3"
         key = None
         if doc.file_url.startswith(prefix):
             key = doc.file_url.split('/', 3)[-1]
         if key:
-            client = get_spaces_client()
-            client.delete_object(Bucket=SPACES_BUCKET, Key=key)
+            client = get_s3_client()
+            client.delete_object(Bucket=S3_BUCKET, Key=key)
     except Exception:
         pass
 
