@@ -134,7 +134,7 @@ async def reset_user_password_request(req: user_schema.ForgetPassword, db: Sessi
     user = sql_query.check_email_exists(db=db, email=req.email, model=user_models.Users)
 
     if not user:
-        return Response(content="An email to reset your password has been sent", status_code=status.HTTP_404_NOT_FOUND)
+        return Response(content="User not found", status_code=status.HTTP_404_NOT_FOUND)
 
     token = utils.generate_otp_code()
     otp_data = user_schema.OTPData(
