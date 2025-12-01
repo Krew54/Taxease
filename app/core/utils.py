@@ -138,7 +138,7 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
         func.lower(model_otp.email) == kwargs.get('email').lower()
         )
     )
-    otp = otp_qs.first()
+    otp = otp_qs.order_by(model_otp.created_at.desc()).first()
 
     if not otp:
         response.status_code = status.HTTP_400_BAD_REQUEST
