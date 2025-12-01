@@ -136,7 +136,7 @@ async def reset_user_password_request(req: user_schema.ForgetPassword, db: Sessi
     if not user:
         return Response(content="An email to reset your password has been sent", status_code=status.HTTP_404_NOT_FOUND)
 
-    token = security.create_access_token(data={"email": user.email})
+    token = utils.generate_otp_code()
     otp_data = user_schema.OTPData(
     code=token,
     email=user.email
@@ -197,6 +197,7 @@ async def update_password_with_otp(req: user_schema.PasswordUpdateWithOTP, db: S
     Update a user's password by validating the most recent OTP for the provided email.
 
     Flow:
+      Part of the forget password process.
     - Fetch the user by email. If not found, return 404.
     - Fetch the most recent OTP record for that email (ordered by created_at desc).
     - Verify OTP exists, is still valid, and matches the provided code.
