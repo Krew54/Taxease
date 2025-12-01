@@ -171,24 +171,65 @@ async def reset_user_password_request(req: user_schema.ForgetPassword, db: Sessi
         "message": "email to reset your password has been been sent"
     }
 
+@user_router.post("/reset-password/request", status_code=status.HTTP_200_OK)
+async def reset_password_request_authenticated(
+    db: Session = Depends(get_db), current_user: Users = Depends(get_current_user)
+):
+    """Authenticated endpoint to request a password reset OTP.
 
-@user_router.put("/reset-password", status_code=status.HTTP_200_OK)
-async def reset_user_password(reqBody: user_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
+    This decodes the authenticated user's token (via `get_current_user`),
+    generates an OTP, persists it and emails it to the user's registered email.
+
+    The OTP can then be used with `/api/auth/user/update-password-with-otp` to set a new password.
     """
-    Reset the user's password using the provided reset token and new password.
+    # generate OTP and persist
+    token = utils.generate_otp_code()
+    otp_data = user_schema.OTPData(code=token, email=current_user.email)
 
-    Args:
-        reqBody (schema.ResetPassword): The request body containing the reset token and new password.
-        db (Session): SQLAlchemy database session dependency.
-
-    Returns:
-        dict: Result of the password reset operation.
+    subject = "Password reset request"
+    recipient = current_user.email
+    message = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+                <meta charset="UTF-8">
+                <meta http-equiv="X-UA-Compatible" content="IE=edge">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Password Reset</title>
+        </head>
+        <body>
+            <div style="width: 100%; font-size: 16px; margin-top: 20px; text-align: center;">
+                <h1>Password Reset</h1>
+                <p>A password reset was requested for your account {recipient}. Use the OTP below to reset your password:</p>
+                <p>{token}</p>
+                <p>If you didn't request this, you can ignore this email.</p>
+            </div>
+        </body>
+        </html>
     """
-    return utils.reset_password(
-        db=db,
-        model=user_models.Users,
-        kwargs=reqBody.dict()
-    )
+
+    utils.send_email(subject=subject, message=message, recipient=recipient)
+    sql_query.create_otp(db=db, model=user_models.UserOneTimePassword, kwargs=otp_data.dict())
+
+    return {"message": "Password reset OTP sent to your email."}
+
+# @user_router.put("/reset-password", status_code=status.HTTP_200_OK)
+# async def reset_user_password(reqBody: user_schema.ResetPassword, db: Session = Depends(get_db)) -> dict:
+#     """
+#     Reset the user's password using the provided reset token and new password.
+
+#     Args:
+#         reqBody (schema.ResetPassword): The request body containing the reset token and new password.
+#         db (Session): SQLAlchemy database session dependency.
+
+#     Returns:
+#         dict: Result of the password reset operation.
+#     """
+#     return utils.reset_password(
+#         db=db,
+#         model=user_models.Users,
+#         kwargs=reqBody.dict()
+#     )
 
 
 @user_router.post("/update-password-with-otp", status_code=status.HTTP_200_OK)

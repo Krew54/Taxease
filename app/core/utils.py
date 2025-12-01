@@ -66,9 +66,6 @@ def reset_password(model, kwargs, db:Session=Depends(get_db)):
         if not qs.first():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
-        if kwargs.password != kwargs.confirm_password:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passwords do not match")
-
         qs.update({"password": kwargs.password}, synchronize_session=False)
         db.commit()
 
