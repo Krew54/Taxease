@@ -27,6 +27,7 @@ class OTPData(BaseModel):
 
 
 class OneTimePassword(BaseModel):
+    email: str
     code: str
 
 

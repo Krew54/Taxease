@@ -95,8 +95,19 @@ def create_login(model, email, password, db:Session):
         }
 
 def create_verify_account(db: Session, model_otp, model, response: Response, kwargs):
-    otp_qs = db.query(model_otp).filter(model_otp.code == kwargs.get('code'))
+
+    otp_qs = (
+    db.query(model_otp)
+    .filter(
+        model_otp.code == kwargs.get('code'),
+        model_otp.email == kwargs.get('email')
+        )
+    )
     otp = otp_qs.first()
+
+    if not otp:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return {"message": "Invalid OTP please try again"}
 
     email = otp.email
   
