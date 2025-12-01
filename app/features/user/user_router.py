@@ -14,6 +14,20 @@ user_router=APIRouter(
     tags=["User Authentication"]
 )
 
+def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: int = payload.get("email")
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+        user = db.query(Users).filter(Users.email == email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
 
 @user_router.post('/signup', status_code=status.HTTP_201_CREATED)
 async def register_user(user: user_schema.UserCreate, db: Session = Depends(get_db)) -> dict:
@@ -272,18 +286,3 @@ async def update_password_with_otp(req: user_schema.PasswordUpdateWithOTP, db: S
     except Exception as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not update password")
-
-
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
-    try:
-        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: int = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
