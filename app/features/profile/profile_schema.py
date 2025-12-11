@@ -1,6 +1,12 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from datetime import datetime
+from enum import Enum
+
+
+class Period(str, Enum):
+	ANNUALLY = "annually"
+	MONTHLY = "monthly"
 
 
 class ProfileBase(BaseModel):
@@ -33,6 +39,7 @@ class ProfileBase(BaseModel):
 	mortgage_interest: Optional[float] = 0.0
 	life_insurance_premium: Optional[float] = 0.0
 	house_rent: Optional[float] = 0.0
+	period: Optional[Period] = Period.ANNUALLY
 
 	class Config:
 		populate_by_name = True

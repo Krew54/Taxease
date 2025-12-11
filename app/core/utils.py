@@ -154,6 +154,7 @@ def create_verify_account(db: Session, model_otp, model, response: Response, kwa
         qs.update({"is_verified": True}, synchronize_session=False)
         otp_qs.update({"is_valid": False}, synchronize_session=False)
         db.commit()
+        response.status_code = status.HTTP_200_OK
         return {"status": "Account verified successfully", "is_verified": user.is_verified}
     else:
         response.status_code = status.HTTP_400_BAD_REQUEST

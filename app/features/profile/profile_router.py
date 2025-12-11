@@ -13,118 +13,6 @@ profile_router = APIRouter(
     tags=["Profile Management"],
 )
 
-
-def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
-    """Dependency that decodes the bearer token and returns the Users model instance."""
-    try:
-        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        return user
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-
-
-@profile_router.get("/my_profile", response_model=profile_schema.ProfileOut)
-def get_my_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Any:
-    """Retrieve the profile for the currently authenticated user."""
-    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-    return profile
-
-
-@profile_router.post("/", response_model=profile_schema.ProfileOut, status_code=status.HTTP_201_CREATED)
-def create_profile(
-    payload: profile_schema.ProfileBase,
-    current_user: Users = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> Any:
-    """Create a profile for the logged-in user. The email from the token is used.
-
-    If a profile already exists for the user, a 400 is returned.
-    """
-    existing = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
-    if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile already exists")
-
-    # Extract tax-related inputs from payload and call compute_tax_liability
-    tax_fields = [
-        "employment_income",
-        "business_income",
-        "other_income",
-        "chargeable_gains",
-        "losses_allowed",
-        "capital_allowances",
-        "national_housing_fund",
-        "National_health_insurance_scheme",
-        "pension_contribution",
-        "mortgage_interest",
-        "life_insurance_premium",
-        "house_rent",
-    ]
-
-    tax_args = {k: (getattr(payload, k, 0) or 0) for k in tax_fields}
-    estimated_tax = compute_tax_liability(**tax_args)
-    # Build model kwargs only with fields that exist on the UserProfile model
-    model_kwargs = {}
-    for attr in ("name","phone_no", "address", "occupation", "date_of_birth", "state_of_residence", "state_tax_authority", "NIN"):
-        val = getattr(payload, attr, None)
-        if val is not None:
-            model_kwargs[attr] = val
-
-    # ensure email is set from the authenticated user
-    model_kwargs["email"] = current_user.email
-    model_kwargs["estimated_tax"] = estimated_tax
-
-    model_kwargs = model_kwargs | tax_args
-
-    new_profile = profile_model.UserProfile(**model_kwargs)
-    db.add(new_profile)
-    db.commit()
-    db.refresh(new_profile)
-    # attach estimated tax to the returned object (not persisted)
-    return new_profile
-
-
-@profile_router.patch("/", response_model=profile_schema.ProfileOut)
-def update_profile(
-    payload: profile_schema.ProfileBase,
-    current_user: Users = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> Any:
-    """Update fields on the current user's profile. Only provided fields are changed."""
-    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-
-    updates = payload.dict(exclude_unset=True, by_alias=False)
-    for key, value in updates.items():
-        setattr(profile, key, value)
-
-    db.add(profile)
-    db.commit()
-    db.refresh(profile)
-    return profile
-
-
-@profile_router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
-def delete_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
-    """Delete the profile belonging to the current user."""
-    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-
-    db.delete(profile)
-    db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
 def compute_tax_liability(
     employment_income: float = 0,
     business_income: float = 0,
@@ -216,3 +104,121 @@ def compute_tax_liability(
     tax += remaining * 0.25
 
     return tax
+
+
+def get_current_user(bearer_token: str = Depends(oauth_schema), db: Session = Depends(get_db)):
+    """Dependency that decodes the bearer token and returns the Users model instance."""
+    try:
+        payload = jwt.decode(bearer_token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str | None = payload.get("email")
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+        user = db.query(Users).filter(Users.email == email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+@profile_router.get("/my_profile", response_model=profile_schema.ProfileOut)
+def get_my_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Any:
+    """Retrieve the profile for the currently authenticated user."""
+    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+    return profile
+
+
+@profile_router.post("/", response_model=profile_schema.ProfileOut, status_code=status.HTTP_201_CREATED)
+def create_profile(
+    payload: profile_schema.ProfileBase,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Create a profile for the logged-in user. The email from the token is used.
+
+    If a profile already exists for the user, a 400 is returned.
+    """
+    existing = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Profile already exists")
+
+    # Extract tax-related inputs from payload and call compute_tax_liability
+    tax_fields = [
+        "employment_income",
+        "business_income",
+        "other_income",
+        "chargeable_gains",
+        "losses_allowed",
+        "capital_allowances",
+        "national_housing_fund",
+        "National_health_insurance_scheme",
+        "pension_contribution",
+        "mortgage_interest",
+        "life_insurance_premium",
+        "house_rent",
+    ]
+
+    tax_args = {k: (getattr(payload, k, 0) or 0) for k in tax_fields}
+
+    if tax_args:
+        estimated_tax = compute_tax_liability(**tax_args)
+        if payload.period == profile_schema.Period.MONTHLY:
+            estimated_tax = estimated_tax * 12
+    
+    # Build model kwargs only with fields that exist on the UserProfile model
+    model_kwargs = {}
+    for attr in ("name","phone_no", "address", "occupation", "date_of_birth", "state_of_residence", "state_tax_authority", "NIN"):
+        val = getattr(payload, attr, None)
+        if val is not None:
+            model_kwargs[attr] = val
+
+    # ensure email is set from the authenticated user
+    model_kwargs["email"] = current_user.email
+    model_kwargs["estimated_tax"] = estimated_tax
+
+    model_kwargs = model_kwargs | tax_args
+
+    new_profile = profile_model.UserProfile(**model_kwargs)
+    db.add(new_profile)
+    db.commit()
+    db.refresh(new_profile)
+    # attach estimated tax to the returned object (not persisted)
+    return new_profile
+
+
+@profile_router.patch("/", response_model=profile_schema.ProfileOut)
+def update_profile(
+    payload: profile_schema.ProfileBase,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Any:
+    """Update fields on the current user's profile. Only provided fields are changed."""
+    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+
+    updates = payload.dict(exclude_unset=True, by_alias=False)
+    for key, value in updates.items():
+        setattr(profile, key, value)
+
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
+@profile_router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_profile(current_user: Users = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
+    """Delete the profile belonging to the current user."""
+    profile = db.query(profile_model.UserProfile).filter(profile_model.UserProfile.email == current_user.email).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+
+    db.delete(profile)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
