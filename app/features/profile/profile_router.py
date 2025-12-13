@@ -26,7 +26,8 @@ def compute_tax_liability(
     pension_contribution: float = 0,
     mortgage_interest: float = 0,
     life_insurance_premium: float = 0,
-    house_rent: float = 0
+    house_rent: float = 0,
+    period: profile_schema.Period = profile_schema.Period.ANNUALLY
 ):
     """
     Compute Personal Income Tax (PIT) based on Nigeria Tax Act 2025.
@@ -47,7 +48,10 @@ def compute_tax_liability(
         total_income = 0
 
     # 2. Eligible Deductions (Section 30)
-    rent_relief = min(0.20 * house_rent, 500000)
+    if period == profile_schema.Period.MONTHLY:
+        rent_relief = min(0.20 * house_rent, 500000/12)
+    else:
+        rent_relief = min(0.20 * house_rent, 500000)
 
     eligible_deductions = (
         national_housing_fund +
@@ -220,5 +224,126 @@ def delete_profile(current_user: Users = Depends(get_current_user), db: Session 
     db.delete(profile)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@profile_router.get("/estimate_tax", response_model=profile_schema.Forecast)
+def estimate_tax(
+    employment_income: float = 0,
+    business_income: float = 0,
+    other_income: float = 0,
+    chargeable_gains: float = 0,
+    final_wht_income: float = 0,
+    losses_allowed: float = 0,
+    capital_allowances: float = 0,
+    national_housing_fund: float = 0,
+    National_health_insurance_scheme: float = 0,
+    pension_contribution: float = 0,
+    mortgage_interest: float = 0,
+    life_insurance_premium: float = 0,
+    house_rent: float = 0,
+    period: profile_schema.Period = profile_schema.Period.ANNUALLY
+) -> Any:
+    """Estimate tax liability based on provided financial inputs."""
+    # compute estimated tax after applying deductions (existing logic)
+    estimated_tax = compute_tax_liability(
+        employment_income,
+        business_income,
+        other_income,
+        chargeable_gains,
+        final_wht_income,
+        losses_allowed,
+        capital_allowances,
+        national_housing_fund,
+        National_health_insurance_scheme,
+        pension_contribution,
+        mortgage_interest,
+        life_insurance_premium,
+        house_rent,
+        period
+    )
+
+    # 1. Total income (before eligible deductions) using same formula as compute_tax_liability
+    total_income = (
+        employment_income
+        + business_income
+        + other_income
+        + chargeable_gains
+        - final_wht_income
+        - losses_allowed
+        - capital_allowances
+    )
+    if total_income < 0:
+        total_income = 0
+
+    # 2. Total deductions (eligible deductions)
+    if period == profile_schema.Period.MONTHLY:
+        rent_relief = min(0.20 * house_rent, 500000/12)
+    else:
+        rent_relief = min(0.20 * house_rent, 500000)
+    total_deduction = (
+        national_housing_fund
+        + National_health_insurance_scheme
+        + pension_contribution
+        + mortgage_interest
+        + life_insurance_premium
+        + rent_relief
+    )
+
+    # 3. Helper to compute progressive tax on a single amount (matches compute_tax_liability bands)
+    def progressive_tax(amount: float) -> float:
+        tax = 0.0
+        remaining = max(amount, 0)
+
+        band = min(remaining, 800000)
+        tax += band * 0
+        remaining -= band
+        if remaining <= 0:
+            return tax
+
+        band = min(remaining, 2200000)
+        tax += band * 0.15
+        remaining -= band
+        if remaining <= 0:
+            return tax
+
+        band = min(remaining, 9000000)
+        tax += band * 0.18
+        remaining -= band
+        if remaining <= 0:
+            return tax
+
+        band = min(remaining, 13000000)
+        tax += band * 0.21
+        remaining -= band
+        if remaining <= 0:
+            return tax
+
+        band = min(remaining, 25000000)
+        tax += band * 0.23
+        remaining -= band
+        if remaining <= 0:
+            return tax
+
+        tax += remaining * 0.25
+        return tax
+
+    # 4. prior_estimated_tax: tax calculated strictly on total_income (no eligible deductions)
+    prior_estimated_tax = progressive_tax(total_income)
+
+    # 5. estimated_tax already computed by compute_tax_liability uses deductions; keep that as final
+    # Apply the same period scaling as previous behavior
+    if period == profile_schema.Period.MONTHLY:
+        estimated_tax = estimated_tax * 12
+        prior_estimated_tax = prior_estimated_tax * 12
+
+    # return structured forecast
+    return {
+        "total_income": total_income,
+        "total_deduction": total_deduction,
+        "prior_estimated_tax": prior_estimated_tax,
+        "estimated_tax": estimated_tax,
+    }
+
+
 
 
