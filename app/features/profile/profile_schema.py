@@ -20,7 +20,7 @@ class ProfileBase(BaseModel):
 	name: Optional[str] = Field(None, alias="Name")
 	phone_no: Optional[str] = None
 	address: Optional[str] = None
-	occupation: Optional[str] = None
+	employment_type: Optional[str] = None
 	date_of_birth: Optional[str] = None
 	state_of_residence: Optional[str] = None
 	state_tax_authority: Optional[str] = None
